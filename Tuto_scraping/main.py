@@ -1,8 +1,7 @@
 import requests
-from bs4 import BeautifulSoup
-import csv
+from bs4 import BeautifulSoup as bsp
 
-# Create CSV file lists
+# Create lists
 product_url = []
 UPC = []
 title = []
@@ -22,36 +21,58 @@ for page in pages:
     # Get the URL with requests to see if site is working
     response = requests.get('http://books.toscrape.com/catalogue/page-' + page + '.html')
     # Beautifulsoup to parse
-    page_html = BeautifulSoup(response.text, 'html.parser')
+    page_html = bsp(response.text, 'html.parser')
+    # print(response)
     # attributes that we are looking for
     book_containers = page_html.find_all(attrs={'class': 'product_pod'})
-    print(response)
 
-# Second loop to seek everything that we need
+    # Second loop to seek urls of each book in the website
     for book in book_containers:
         # Url
-        product_url.append(book.h3.a.get('href'))
-        # Titre
-        title.append(book.h3.a.get('title'))
-        # Prix avec taxes
-        prices_including_tax.append(book.find('p', class_="price_color").text[2:])  # Slicing price sign
-        # Prix sans taxes
-        prices_excluding_tax
-        # Nombre de produits disponibles
-        number_available.append(book.find('p', class_="instock availability"))
-        # Description
-        product_description
-        # Catégories
-        category
-        # Notes
-        review_rating.append(book.find("p", class_="star-rating").get("class")[1])  # To only get the number of stars
-        # Url image
-        image_url.append(book.find("img").get("src"))
-        print(product_url)
+        a = book.find('a')
+        url = a['href']
+        product_url.append('https://books.toscrape.com/catalogue/' + url)
 
-# CSV file creation
-with open('projet2.csv', 'w', newline='') as f:
-    tableau = []
-    ecrire = csv.writer(f)
-    for i in tableau:
-        ecrire.writerow(i)
+# Create csv file with all urls
+with open('urls.csv', 'w') as file:
+    for url in product_url:
+        file.write(url + '\n')
+
+# Third loop to get all information we need about each books
+with open('urls.csv', 'r') as inf:
+    with open('projet2.csv', 'w', newline='') as outf:
+        outf.write('product_url, UPC, title, prices_excluding_tax, prices_including_tax, number_available, '
+                   'product_description, category, review_rating, image_url\n')
+        for row in inf:
+            book_url = row.strip()
+            response = requests.get(book_url)
+            if response.ok:
+                soup = bsp(response.text, 'html.parser')
+                # UPC
+                UPC = soup.find('table', {'class': 'table table-striped'}).find('td').text[0:]  # Slicing
+                print(UPC)
+                # Titre
+                title = soup.find('h1').text[0:]
+                print(title)
+                # Price without taxes
+                prices_excluding_tax = soup.find()
+                # print(prices_excluding_tax)
+                # Price with taxes
+                prices_including_tax = soup.find()
+                # print(prices_including_tax)
+                # Number of products available
+                number_available.append(book.find('p', class_="instock availability"))
+                # print(number_available)
+                # Description
+                product_description = soup.find('article', {'class': 'product_page'}).find('div', {'id': 'product_description'}).find('p')
+                print(product_description)
+                # Categories
+                category = soup.find('ul', {'class': 'breadcrumb'}).find()
+                # print(category)
+                # Notes
+                review_rating = soup.find('p', {'class': 'star-rating'}).get('class')[1]  # To only get the number of stars
+                print(review_rating)
+                # Url image
+                image_url.append(book.find("img").get("src"))
+                # print(image_url)
+
