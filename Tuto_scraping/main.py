@@ -82,7 +82,7 @@ with open('urls.csv', 'r') as inf:
                 product_description = soup.find('article', {'class': 'product_page'}).find_all('p')[3].get_text()
                 print(product_description)
                 # Categories
-                category = soup.find('ul', {'class': 'breadcrumb'}).find_all('li')[2].get_text
+                category = soup.find('ul', {'class': 'breadcrumb'}).find_all('li')[2].text
                 print(category)
                 # Notes
                 review_rating = soup.find('p', {'class': 'star-rating'}).get('class')[1]  # To only get the number of stars
