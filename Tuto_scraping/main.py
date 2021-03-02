@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup as bsp
 # Create lists
 category_url = []
 product_url = []
-UPC = []
+upc = []
 title = []
 prices_including_tax = []
 prices_excluding_tax = []
@@ -64,8 +64,8 @@ with open('urls.csv', 'r') as inf:
             if response.ok:
                 soup = bsp(response.text, 'html.parser')
                 # UPC
-                UPC = soup.find('table', {'class': 'table table-striped'}).find('td').text[0:] # Slicing
-                print(UPC)
+                upc = soup.find('table', {'class': 'table table-striped'}).find('td').text[0:] # Slicing
+                print(upc)
                 # Titre
                 title = soup.find('h1').text[0:]
                 print(title)
