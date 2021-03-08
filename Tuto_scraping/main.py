@@ -1,92 +1,113 @@
 import requests
 from bs4 import BeautifulSoup as bsp
+import csv
 
-# Create lists
-category_url = []
-product_url = []
-upc = []
-title = []
-prices_including_tax = []
-prices_excluding_tax = []
-number_available = []
-product_description = []
-category = []
-review_rating = []
-image_url = []
+url_base = 'http://books.toscrape.com/'
+# Create folder for all the csv files
+csv_path = 'Scraped/'
 
-
-# Define the number of pages
-pages = [str(i) for i in range(1, 51)]
-
-# First loop to parse and get all the pages
-for page in pages:
-    # Get the URL with requests to see if site is working
-    response = requests.get('http://books.toscrape.com/catalogue/page-' + page + '.html')
-    # Beautifulsoup to parse
-    page_html = bsp(response.text, 'html.parser')
-    # print(response)
-    # attributes that we are looking for
-    category_container = page_html.find('div', class_='side_categories').find('li').find('ul').find_all('li')
-    book_containers = page_html.find_all(class_='product_pod')
-
-    # Second loop to seek urls of each book in the website
-    for book in book_containers:
-        # Url
-        a = book.find('a')
-        url = a['href']
-        product_url.append('https://books.toscrape.com/catalogue/' + url)
-
-    # Third loop to get all the categories urls
-    for categories in category_container:
-        # Categories urls
-        a_cat = categories.find('a')
-        url_cat = a_cat['href']
-        category_url.append('https://books.toscrape.com/catalogue/' + url_cat)
-
-# Create csv file with all books urls
-with open('urls.csv', 'w') as file:
-    for url in product_url:
-        file.write(url + '\n')
-
-# Create csv file with all categories urls
-with open('url_cat.csv', 'w') as file:
-    for url_cat in category_url:
-        file.write(url_cat + '\n')
-
-# Fourth loop to get all information we need about each books
-with open('urls.csv', 'r') as inf:
-    with open('projet2.csv', 'w', newline='') as outf:
-        outf.write('product_url, UPC, title, prices_excluding_tax, prices_including_tax, number_available, '
-                   'product_description, category, review_rating, image_url\n')
-        for row in inf:
-            book_url = row.strip()
-            response = requests.get(book_url)
+# First function to seek books urls
+def look_for_books_url(category_url: str):
+    category = []
+    links = []
+    response = requests.get(category_url)
+    if response.ok:
+        category.append(category_url)
+        category_base = category_url.replace('index.html', '')
+        soup = bsp(response.content, 'html.parser')
+        # Look for 'next' class to define if there is multiple pages
+        while True:
+            # if not we get out of the loop
+            if not soup.find('li', class_='next'):
+                break
+            response = requests.get(category_base + soup.find('li', class_='next').a['href'])
             if response.ok:
-                soup = bsp(response.text, 'html.parser')
-                # UPC
-                upc = soup.find('table', {'class': 'table table-striped'}).find('td').text[0:] # Slicing
-                print(upc)
-                # Titre
-                title = soup.find('h1').text[0:]
-                print(title)
-                # Price without taxes
-                prices_excluding_tax = soup.find('table', {'class': 'table table-striped'}).find_all('td')[2].get_text()
-                print(prices_excluding_tax)
-                # Price with taxes
-                prices_including_tax = soup.find('table', {'class': 'table table-striped'}).find_all('td')[3].get_text()
-                print(prices_including_tax)
-                # Number of products available
-                number_available = soup.find('table', {'class': 'table table-striped'}).find_all('td')[5].text[10:12] # To only get the number available
-                print(number_available)
-                # Description
-                product_description = soup.find('article', {'class': 'product_page'}).find_all('p')[3].get_text()
-                print(product_description)
-                # Categories
-                category = soup.find('ul', {'class': 'breadcrumb'}).find_all('li')[2].text
-                print(category)
-                # Notes
-                review_rating = soup.find('p', {'class': 'star-rating'}).get('class')[1]  # To only get the number of stars
-                print(review_rating)
-                # Url image
-                # image_url = soup.find("img").get("src")
-                # print(image_url)
+                category.append(response.url)
+                soup = bsp(response.content, 'html.parser')
+    # Now we look for the books
+    for book_url in category:
+        response = requests.get(book_url)
+        if response.ok:
+            soup = bsp(response.content, 'html.parser')
+            book_containers = soup.find_all(class_='product_pod')
+            for book in book_containers:
+                link = book.a['href']
+                links.append(url_base + 'catalogue/' + link.replace('../../../', ''))
+    return links
+
+
+# Function to get all categories urls
+def look_for_categories_url(url: str):
+    cat = dict()
+    response = requests.get(url)
+    if response.ok:
+        soup = bsp(response.content, 'html.parser')
+        category_container = soup.find('ul', class_='nav-list').find('ul').find_all('a')
+        for category in category_container:
+            cat[category.text.strip().replace(' ', '_')] = category['href']
+    return cat
+
+
+# Function to go through each categories
+def scrap_books_in_cat(url: str):
+    all_cat = dict()
+    categorys = look_for_categories_url(url)
+    for category in categorys:
+        # Loop to go through each books in each categories
+        all_cat[category[0]] = look_for_books_url(url + category[1])
+    return all_cat
+
+
+def csv_writer(data: list, category: str):
+    with open(csv_path + category + '.csv', 'w', newline='', encoding='utf-8-sig') as csvfile:
+        fieldnames = ['productpage_url', 'upc', 'title', 'price_including_tax',  'price_excluding_tax',
+                      'number_available', 'product_description', 'category', 'review_rating', 'image_url']
+        try:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames, restval='', extrasaction='raise')
+            writer.writeheader()
+            writer.writerows(data)
+        except Warning:
+            print('Erreur')
+
+def final_script():
+    urls = scrap_books_in_cat(url_base)
+    for category in urls:
+        data = []
+        for books in urls:
+            data.append(look_for_books_data(books))
+        try:
+            csv_writer(data, category)
+        except Warning:
+            print('Erreur')
+
+# def look_for_books_data(url: str):
+#     info = []
+#     response = requests.get(url)
+#     if response.ok:
+#         soup = bsp(response.content, 'html.parser')
+#         img = url_base + soup.select("div.item.active")[0].img.attrs["src"].replace("../../", "")
+#         # Almost all datas are stored in one place
+#         data_container = soup.find_all('table')[0].find_all('td')
+#         for data in data_container:
+#             info.append(data.text)
+#         return(
+#             'product_page_url' = url,
+#             # UPC
+#             'upc' = info[0],
+#             # Title
+#             'title' = soup.find_all("div", class_="product_main")[0].h1.text,
+#             # Price including tax
+#             'price_including_tax' = info[3],
+#             # Price excluding tax
+#             'price_excluding_tax' = info[2],
+#             # Number available
+#             'number_available' = info[5].text[10:12], # Slicing to only get the number available
+#             # Description
+#             'product_description' = soup.find('article', {'class': 'product_page'}).find_all('p')[3].get_text(),
+#             # Categories
+#             'categories' = soup.find('ul', class_='breadcrumb').find_all('a')[2].text,
+#             # Number of stars
+#             'review_rating' = soup.find_all('p', class_='star-rating')[0].attrs['class'][1], # Slicing to get only the number of stars
+#             # Images
+#             'image_url' = img
+#         )
