@@ -142,11 +142,11 @@ def main():
         data = []
         # Second loop : we look for each book in each categories
         for books in urls[category]:
-            print(f'Récupération des informations du livre {books!r} dans la catégorie {category!r}')
+            print(f"Récupération des informations du livre {books!r} dans la catégorie {category!r}")
             data.append(look_for_books_data(books))
         try:
             csv_writer(data, category)
-            print(f'Tous les livres de la catégorie {category!r} ont été récupérés')
+            print(f"Tous les livres de la catégorie {category!r} ont été récupérés")
         except Warning:
             print("Une erreur s'est produite lors de la création du fichier csv")
 
