@@ -23,7 +23,7 @@ Execute the command:
 
 ## Installation dependencies manually :
 
-- `pip install beautifulsoup4~= 4.9.1 requests~= 2.25.1 csv~= 1.0`
+- `pip install beautifulsoup4~= 4.9.1 requests~= 2.25.1`
 
 ## Execution of application code :
 
