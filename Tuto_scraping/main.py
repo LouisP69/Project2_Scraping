@@ -11,6 +11,7 @@ image_path = "scraped/images/"
 
 
 def init():
+    """Function to create the directory"""
     path = os.path.dirname(os.path.realpath(__file__))
     try:
         os.makedirs(path + "//" + image_path, exist_ok=True)
@@ -19,7 +20,7 @@ def init():
 
 
 def look_for_books_data(url: str):
-    """ Function to scrape books data"""
+    """Function to scrape books data"""
     info = []
     response = requests.get(url)
     if not response.ok:
@@ -58,7 +59,7 @@ def look_for_books_data(url: str):
 
 
 def look_for_books_url(category_url: str) -> list:
-    """ Function to seek books urls"""
+    """Function to seek books urls"""
     category = []
     links = []
     response = requests.get(category_url)
@@ -99,7 +100,7 @@ def look_for_books_url(category_url: str) -> list:
 
 
 def look_for_categories_url(url: str):
-    """ Function to get all categories urls"""
+    """Function to get all categories urls"""
     categorys = dict()
     response = requests.get(url)
     if not response.ok:
@@ -115,7 +116,7 @@ def look_for_categories_url(url: str):
 
 
 def scrap_books_in_cat(url: str):
-    """ Function to go through each categories"""
+    """Function to go through each categories"""
     all_category = dict()
     categorys = look_for_categories_url(url)
 
@@ -128,7 +129,7 @@ def scrap_books_in_cat(url: str):
 
 
 def csv_writer(data: list, category: str):  # First we say that there will be two different parameter and what they are
-    """ We create the CSV file"""
+    """We create the CSV file"""
     with open(csv_path + category + '.csv', 'w', newline='',
               encoding='utf-8-sig') as csvfile:  # We, then, name the files with the list "category"
         fieldnames = ['product_page_url', 'upc', 'title', 'price_including_tax', 'price_excluding_tax',
@@ -146,17 +147,18 @@ def csv_writer(data: list, category: str):  # First we say that there will be tw
             raise Warning
 
 
-def scrap_book_picture(img_url: str):
+def scrap_book_images(img_url: str):
+    """Function to get the images in the directory"""
     response = requests.get(img_url)
+    if not response.ok:
+        print("Error in the download of the images :" + img_url)
     if response.ok:
         with open(image_path + img_url.split('/')[-1], 'wb') as pics:
             pics.write(response.content)
-    else:
-        print("Error in the download of the images :" + img_url)
 
 
 def main():
-    """ Function to run our program"""
+    """Function to run our program"""
     init()
     print('Début du scraping sur le site ' + url_base)
     urls = scrap_books_in_cat(url_base)
@@ -176,8 +178,11 @@ def main():
         except Warning:
             print("Une erreur s'est produite lors de la création du fichier csv")
 
+    # Usage of pool and map, since it's images, it's easier than use some "for" loops
+    # Way faster since it uses all your cores
     print("Récupération des images..")
-    map(scrap_book_picture, img_all)
+    p = Pool(20)
+    p.map(scrap_book_images, img_all)
     print("Images récupérées !")
 
 
