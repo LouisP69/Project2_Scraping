@@ -1,12 +1,26 @@
 import requests
 from bs4 import BeautifulSoup as bsp
 import csv
+import os
+from multiprocessing import Pool
+
 
 url_base = 'http://books.toscrape.com/'
+csv_path = "scraped/"
+image_path = "scraped/images/"
+
+
+def init():
+    """Function to create the directory"""
+    path = os.path.dirname(os.path.realpath(__file__))
+    try:
+        os.makedirs(path + "//" + image_path, exist_ok=True)
+    except OSError as error:
+        print("Error : the file cannot be created :" + str(error))
 
 
 def look_for_books_data(url: str):
-    """ Function to scrape books data"""
+    """Function to scrape books data"""
     info = []
     response = requests.get(url)
     if not response.ok:
@@ -45,7 +59,7 @@ def look_for_books_data(url: str):
 
 
 def look_for_books_url(category_url: str) -> list:
-    """ Function to seek books urls"""
+    """Function to seek books urls"""
     category = []
     links = []
     response = requests.get(category_url)
@@ -86,7 +100,7 @@ def look_for_books_url(category_url: str) -> list:
 
 
 def look_for_categories_url(url: str):
-    """ Function to get all categories urls"""
+    """Function to get all categories urls"""
     categorys = dict()
     response = requests.get(url)
     if not response.ok:
@@ -102,7 +116,7 @@ def look_for_categories_url(url: str):
 
 
 def scrap_books_in_cat(url: str):
-    """ Function to go through each categories"""
+    """Function to go through each categories"""
     all_category = dict()
     categorys = look_for_categories_url(url)
 
@@ -115,8 +129,8 @@ def scrap_books_in_cat(url: str):
 
 
 def csv_writer(data: list, category: str):  # First we say that there will be two different parameter and what they are
-    """ We create the CSV file"""
-    with open(category + '.csv', 'w', newline='',
+    """We create the CSV file"""
+    with open(csv_path + category + '.csv', 'w', newline='',
               encoding='utf-8-sig') as csvfile:  # We, then, name the files with the list "category"
         fieldnames = ['product_page_url', 'upc', 'title', 'price_including_tax', 'price_excluding_tax',
                       # Here we name all the columns in our CSV file
@@ -133,22 +147,43 @@ def csv_writer(data: list, category: str):  # First we say that there will be tw
             raise Warning
 
 
+def scrap_book_images(img_url: str):
+    """Function to get the images in the directory"""
+    response = requests.get(img_url)
+    if not response.ok:
+        print("Erreur dans le téléchargement des images :" + img_url)
+    if response.ok:
+        with open(image_path + img_url.split('/')[-1], 'wb') as pics:
+            pics.write(response.content)
+
+
 def main():
-    """ Function to run our program"""
+    """Function to run our program"""
+    init()
     print('Début du scraping sur le site ' + url_base)
     urls = scrap_books_in_cat(url_base)
+    img_all = []
     # First loop : we look for all the categories urls
     for category in urls.keys():
         data = []
         # Second loop : we look for each book in each categories
         for books in urls[category]:
-            print(f'Récupération des informations du livre {books!r} dans la catégorie {category!r}')
+            print(f"Récupération des informations sur l'url {books!r} dans la catégorie {category!r}")
             data.append(look_for_books_data(books))
+            img_all.append(data[-1]['image_url'])
         try:
             csv_writer(data, category)
-            print(f'Tous les livres de la catégorie {category!r} ont été récupérés')
+            print(f"Tous les livres de la catégorie {category!r} ont été récupérés")
+
         except Warning:
             print("Une erreur s'est produite lors de la création du fichier csv")
+
+    # Usage of pool and map, since it's images, it's easier than use some "for" loops
+    # Way faster since it uses all your cores
+    print("Récupération des images..")
+    p = Pool(20)
+    p.map(scrap_book_images, img_all)
+    print("Images récupérées !")
 
 
 if __name__ == '__main__':
