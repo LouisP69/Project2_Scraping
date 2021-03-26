@@ -1,8 +1,21 @@
 import requests
 from bs4 import BeautifulSoup as bsp
 import csv
+import os
+from multiprocessing import Pool
+
 
 url_base = 'http://books.toscrape.com/'
+csv_path = "scraped/"
+image_path = "scraped/images/"
+
+
+def init():
+    path = os.path.dirname(os.path.realpath(__file__))
+    try:
+        os.makedirs(path + "//" + image_path, exist_ok=True)
+    except OSError as error:
+        print("Error : the file cannot be created :" + str(error))
 
 
 def look_for_books_data(url: str):
@@ -116,7 +129,7 @@ def scrap_books_in_cat(url: str):
 
 def csv_writer(data: list, category: str):  # First we say that there will be two different parameter and what they are
     """ We create the CSV file"""
-    with open(category + '.csv', 'w', newline='',
+    with open(csv_path + category + '.csv', 'w', newline='',
               encoding='utf-8-sig') as csvfile:  # We, then, name the files with the list "category"
         fieldnames = ['product_page_url', 'upc', 'title', 'price_including_tax', 'price_excluding_tax',
                       # Here we name all the columns in our CSV file
@@ -133,22 +146,39 @@ def csv_writer(data: list, category: str):  # First we say that there will be tw
             raise Warning
 
 
+def scrap_book_picture(img_url: str):
+    response = requests.get(img_url)
+    if response.ok:
+        with open(image_path + img_url.split('/')[-1], 'wb') as pics:
+            pics.write(response.content)
+    else:
+        print("Error in the download of the images :" + img_url)
+
+
 def main():
     """ Function to run our program"""
+    init()
     print('Début du scraping sur le site ' + url_base)
     urls = scrap_books_in_cat(url_base)
+    img_all = []
     # First loop : we look for all the categories urls
     for category in urls.keys():
         data = []
         # Second loop : we look for each book in each categories
         for books in urls[category]:
-            print(f"Récupération des informations du livre {books!r} dans la catégorie {category!r}")
+            print(f"Récupération des informations sur l'url {books!r} dans la catégorie {category!r}")
             data.append(look_for_books_data(books))
+            img_all.append(data[-1]['image_url'])
         try:
             csv_writer(data, category)
             print(f"Tous les livres de la catégorie {category!r} ont été récupérés")
+
         except Warning:
             print("Une erreur s'est produite lors de la création du fichier csv")
+
+    print("Récupération des images..")
+    map(scrap_book_picture, img_all)
+    print("Images récupérées !")
 
 
 if __name__ == '__main__':
