@@ -151,7 +151,7 @@ def scrap_book_images(img_url: str):
     """Function to get the images in the directory"""
     response = requests.get(img_url)
     if not response.ok:
-        print("Error in the download of the images :" + img_url)
+        print("Erreur dans le téléchargement des images :" + img_url)
     if response.ok:
         with open(image_path + img_url.split('/')[-1], 'wb') as pics:
             pics.write(response.content)
