@@ -25,37 +25,38 @@ def look_for_books_data(url: str):
     response = requests.get(url)
     if not response.ok:
         print("L'url : " + url + 'est momentanément indisponible.')
-    if response.ok:
-        soup = bsp(response.content, 'html.parser')
-        img = url_base + soup.select("div.item.active")[0].img.attrs["src"].replace("../../", "")
-        # Almost all datas are stored in one place
-        data_container = soup.find_all('table')[0].find_all('td')
 
-        for data in data_container:
-            info.append(data.text)
+    soup = bsp(response.content, 'html.parser')
+    img = url_base + soup.select("div.item.active")[0].img.attrs["src"].replace("../../", "")
+    # Almost all datas are stored in one place
+    data_container = soup.find_all('table')[0].find_all('td')
 
-        return {
-            'product_page_url': url,
-            # UPC
-            'upc': info[0],
-            # Title
-            'title': soup.find_all("div", class_="product_main")[0].h1.text,
-            # Price including tax
-            'price_including_tax': info[3],
-            # Price excluding tax
-            'price_excluding_tax': info[2],
-            # Number available
-            'number_available': info[5],  # Slicing to only get the number available
-            # Description
-            'product_description': soup.find('article', {'class': 'product_page'}).find_all('p')[3].get_text(),
-            # Categories
-            'category': soup.find('ul', class_='breadcrumb').find_all('a')[2].text,
-            # Number of stars
-            'review_rating': soup.find_all('p', class_='star-rating')[0].attrs['class'][1],
-            # Slicing to get only the number of stars
-            # Images
-            'image_url': img
-        }
+    for data in data_container:
+        info.append(data.text)
+
+    return {
+        'product_page_url': url,
+        # UPC
+        'upc': info[0],
+        # Title
+        'title': soup.find_all("div", class_="product_main")[0].h1.text,
+        # Price including tax
+        'price_including_tax': info[3],
+        # Price excluding tax
+        'price_excluding_tax': info[2],
+        # Number available
+        'number_available': info[5],  # Slicing to only get the number available
+        # Description
+        'product_description': soup.find('article', {'class': 'product_page'}).find_all('p')[3].get_text(),
+        # Categories
+        'category': soup.find('ul', class_='breadcrumb').find_all('a')[2].text,
+        # Number of stars
+        'review_rating': soup.find_all('p', class_='star-rating')[0].attrs['class'][1],
+        # Slicing to get only the number of stars
+        # Images
+        'image_url': img,
+        'image_alt': img.split('/')[-1]
+    }
 
 
 def look_for_books_url(category_url: str) -> list:
@@ -77,9 +78,9 @@ def look_for_books_url(category_url: str) -> list:
             response = requests.get(category_base + soup.find('li', class_='next').a['href'])
             if not response.ok:
                 print('Le site ' + url_base + ' est momentanément indisponible.')
-            if response.ok:
-                category.append(response.url)
-                soup = bsp(response.content, 'html.parser')
+
+            category.append(response.url)
+            soup = bsp(response.content, 'html.parser')
 
 
     # Now we look for the books
@@ -87,14 +88,14 @@ def look_for_books_url(category_url: str) -> list:
         response = requests.get(book_url)
         if not response.ok:
             print("L'url : " + book_url + 'est momentanément indisponible.')
-        if response.ok:
-            soup = bsp(response.content, 'html.parser')
-            book_containers = soup.find_all(class_='product_pod')
 
-            for book in book_containers:
-                link = book.a['href']
-                links.append(
-                    url_base + 'catalogue/' + link.replace('../../../', ''))  # To concatenate we have to replace
+        soup = bsp(response.content, 'html.parser')
+        book_containers = soup.find_all(class_='product_pod')
+
+        for book in book_containers:
+            link = book.a['href']
+            links.append(
+                url_base + 'catalogue/' + link.replace('../../../', ''))  # To concatenate we have to replace
 
     return links
 
@@ -105,12 +106,11 @@ def look_for_categories_url(url: str):
     response = requests.get(url)
     if not response.ok:
         print("L'url : " + url + 'est momentanément indisponible.')
-    if response.ok:
-        soup = bsp(response.content, 'html.parser')
-        category_container = soup.find('ul', class_='nav-list').find('ul').find_all('a')
+    soup = bsp(response.content, 'html.parser')
+    category_container = soup.find('ul', class_='nav-list').find('ul').find_all('a')
 
-        for category in category_container:
-            categorys[category.text.strip().replace(' ', '_')] = category['href']
+    for category in category_container:
+        categorys[category.text.strip().replace(' ', '_')] = category['href']
 
     return categorys
 
@@ -134,7 +134,7 @@ def csv_writer(data: list, category: str):  # First we say that there will be tw
               encoding='utf-8-sig') as csvfile:  # We, then, name the files with the list "category"
         fieldnames = ['product_page_url', 'upc', 'title', 'price_including_tax', 'price_excluding_tax',
                       # Here we name all the columns in our CSV file
-                      'number_available', 'product_description', 'category', 'review_rating', 'image_url']
+                      'number_available', 'product_description', 'category', 'review_rating', 'image_url', 'image_alt']
         # Here we set what our CSV file will do in case of an error
         # Restval is for the values that are not in any fields
         try:
@@ -148,13 +148,12 @@ def csv_writer(data: list, category: str):  # First we say that there will be tw
 
 
 def scrap_book_images(img_url: str):
-    """Function to get the images in the directory"""
+    """Function to get the images in the directory and name them"""
     response = requests.get(img_url)
     if not response.ok:
         print("Erreur dans le téléchargement des images :" + img_url)
-    if response.ok:
-        with open(image_path + img_url.split('/')[-1], 'wb') as pics:
-            pics.write(response.content)
+    with open(image_path + img_url.split('/')[-1], 'wb') as pics:
+        pics.write(response.content)
 
 
 def main():
